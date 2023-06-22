@@ -7,6 +7,7 @@ import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+
 import "hardhat/console.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
@@ -31,7 +32,6 @@ contract Oracle {
             UniswapV2Library.pairFor(factory, tokenA, tokenB)
         );
         pair = _pair;
-        console.log("pairAddress", address(pair));
         token0 = pair.token0();
         token1 = pair.token1();
         price0CumulativeLast = pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)
