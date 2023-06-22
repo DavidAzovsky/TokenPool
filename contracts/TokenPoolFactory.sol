@@ -3,6 +3,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./TokenPool.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "hardhat/console.sol";
+
 pragma solidity ^0.8.9;
 
 contract TokenPoolFactory is Ownable {
@@ -19,7 +21,7 @@ contract TokenPoolFactory is Ownable {
         uniswapRouter = _router;
     }
 
-    function addPool(address _asset) external {
+    function addPool(address _asset) external onlyOwner {
         require(!assetList.contains(_asset), "Pool already exists");
         TokenPool newPool = new TokenPool(_asset, rewardToken, uniswapRouter);
         assetList.add(_asset);
