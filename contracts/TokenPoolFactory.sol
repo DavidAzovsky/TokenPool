@@ -12,18 +12,25 @@ contract TokenPoolFactory is Ownable {
 
     address public uniswapRouter;
     address public rewardToken;
+    address public uniswapFactory;
 
     EnumerableSet.AddressSet private poolList;
     EnumerableSet.AddressSet private assetList;
 
-    constructor(address _reward, address _router) {
+    constructor(address _reward, address _router, address _factory) {
         rewardToken = _reward;
         uniswapRouter = _router;
+        uniswapFactory = _factory;
     }
 
     function addPool(address _asset) external onlyOwner {
         require(!assetList.contains(_asset), "Pool already exists");
-        TokenPool newPool = new TokenPool(_asset, rewardToken, uniswapRouter);
+        TokenPool newPool = new TokenPool(
+            _asset,
+            rewardToken,
+            uniswapRouter,
+            uniswapFactory
+        );
         assetList.add(_asset);
         poolList.add(address(newPool));
     }

@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "./Oracle.sol";
 import "hardhat/console.sol";
 
 pragma solidity ^0.8.9;
@@ -13,6 +14,8 @@ contract TokenPool is AccessControl, Ownable {
     // using EnumerableMap for EnumerableMap.UintToAddressMap;
     // using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    Oracle oracle;
 
     address public rewardToken;
     address public assetToken;
@@ -40,12 +43,17 @@ contract TokenPool is AccessControl, Ownable {
         uint256 withdrawTime
     );
 
-    constructor(address _assetToken, address _rewardToken, address _router) {
+    constructor(
+        address _assetToken,
+        address _rewardToken,
+        address _router,
+        address _factory
+    ) {
         rewardToken = _rewardToken;
         assetToken = _assetToken;
         uniswapRouter = _router;
         lastRewardTime = block.timestamp;
-
+        oracle = new Oracle(_factory, _assetToken, _rewardToken);
         // _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -68,6 +76,11 @@ contract TokenPool is AccessControl, Ownable {
                     rewardBalance[msg.sender]
                 );
 
+                uint256 amountOut = oracle.consult(
+                    rewardToken,
+                    rewardBalance[msg.sender]
+                );
+
                 address[] memory path = new address[](2);
                 path[0] = rewardToken;
                 path[1] = assetToken;
@@ -76,16 +89,16 @@ contract TokenPool is AccessControl, Ownable {
                     uniswapRouter,
                     rewardBalance[msg.sender]
                 );
-                uint[] memory amount = IUniswapV2Router02(uniswapRouter)
+                uint[] memory amounts = IUniswapV2Router02(uniswapRouter)
                     .swapExactTokensForTokens(
                         rewardBalance[msg.sender],
-                        0,
+                        amountOut,
                         path,
                         address(this),
-                        block.timestamp
+                        block.timestamp + 600
                     );
 
-                depositorBalance[msg.sender] += amount[0];
+                depositorBalance[msg.sender] += amounts[1];
             } else depositorBalance[msg.sender] += rewardBalance[msg.sender];
             rewardBalance[msg.sender] = 0;
         }
@@ -126,16 +139,17 @@ contract TokenPool is AccessControl, Ownable {
         require(lastRewardTime + 7 days <= block.timestamp, "Invalid time");
 
         address[] memory validUsers;
-        uint256 validUserLength;
+        validUsers = new address[](depositors.length());
+        uint256 validUsersLength;
         uint256 totalValidUserDeposit;
 
         for (uint i = 0; i < depositors.length(); i++) {
-            if (lastDepositTime[depositors.at(i)] > lastRewardTime) {
-                validUsers[validUserLength++] = depositors.at(i);
+            if (lastDepositTime[depositors.at(i)] >= lastRewardTime) {
+                validUsers[validUsersLength++] = depositors.at(i);
                 totalValidUserDeposit += depositorBalance[depositors.at(i)];
             }
         }
-        for (uint i = 0; i < validUserLength; i++)
+        for (uint i = 0; i < validUsersLength; i++)
             rewardBalance[validUsers[i]] +=
                 (depositorBalance[validUsers[i]] * _amount) /
                 totalValidUserDeposit;

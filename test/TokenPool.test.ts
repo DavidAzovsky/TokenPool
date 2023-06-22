@@ -9,6 +9,7 @@ import {
   TokenPool__factory,
 } from "../typechain-types";
 import { parseEther } from "alchemy-sdk/dist/src/api/utils";
+import { util } from "prettier";
 
 const { provider } = waffle;
 const web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
@@ -36,17 +37,20 @@ describe("TokenPool", async () => {
   beforeEach(async () => {
     [owner, user1, user2, team] = await ethers.getSigners();
 
-    const rewardFactory = await ethers.getContractFactory("RewardToken");
-    RewardToken = await rewardFactory.deploy(ethers.utils.parseEther("1000"));
-    await RewardToken.deployed();
+    RewardToken = await ethers.getContractAt(
+      "IERC20",
+      "0x514910771AF9Ca656af840dff83E8264EcF986CA"
+    );
 
-    const usdtFactory = await ethers.getContractFactory("USDT");
-    USDT = await usdtFactory.deploy(ethers.utils.parseEther("1000"));
-    await USDT.deployed();
+    USDT = await ethers.getContractAt(
+      "IERC20",
+      "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+    );
 
-    const daiFactory = await ethers.getContractFactory("DAI");
-    DAI = await daiFactory.deploy(ethers.utils.parseEther("1000"));
-    await DAI.deployed();
+    DAI = await ethers.getContractAt(
+      "IERC20",
+      "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    );
 
     const UniswapRouterABI = require("./ABI/UniswapRouter.json");
     UniswapRouter = await ethers.getContractAt(
@@ -54,12 +58,17 @@ describe("TokenPool", async () => {
       "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
     );
 
+    const uniswapFactoryAddress = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
+
     const _poolFactory = await ethers.getContractFactory("TokenPoolFactory");
     PoolFactory = await _poolFactory.deploy(
       RewardToken.address,
-      UniswapRouter.address
+      UniswapRouter.address,
+      uniswapFactoryAddress
     );
     await PoolFactory.deployed();
+
+    // console.log("poolFactory", PoolFactory.address);
 
     await PoolFactory.connect(owner).addPool(USDT.address);
     const pool1Address = await PoolFactory.getPoolAddress(0);
@@ -69,13 +78,45 @@ describe("TokenPool", async () => {
     const pool2Address = await PoolFactory.getPoolAddress(1);
     TokenPool2 = await ethers.getContractAt("TokenPool", pool2Address);
 
-    await RewardToken.mint(team.address, ethers.utils.parseEther("100"));
+    const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+    const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 
-    await DAI.mint(user1.address, ethers.utils.parseEther("100"));
-    await DAI.mint(user2.address, ethers.utils.parseEther("100"));
+    await UniswapRouter.connect(team).swapETHForExactTokens(
+      10000,
+      [WETH, RewardToken.address],
+      team.address,
+      currentTime + 100000,
+      { value: ethers.utils.parseEther("100") }
+    );
+    await UniswapRouter.connect(user1).swapETHForExactTokens(
+      10000,
+      [WETH, DAI.address],
+      user1.address,
+      currentTime + 100000,
+      { value: ethers.utils.parseEther("100") }
+    );
+    await UniswapRouter.connect(user2).swapETHForExactTokens(
+      10000,
+      [WETH, DAI.address],
+      user2.address,
+      currentTime + 100000,
+      { value: ethers.utils.parseEther("100") }
+    );
 
-    await USDT.mint(user1.address, ethers.utils.parseEther("100"));
-    await USDT.mint(user2.address, ethers.utils.parseEther("100"));
+    await UniswapRouter.connect(user1).swapETHForExactTokens(
+      10000,
+      [WETH, USDT.address],
+      user1.address,
+      currentTime + 100000,
+      { value: ethers.utils.parseEther("100") }
+    );
+    await UniswapRouter.connect(user2).swapETHForExactTokens(
+      10000,
+      [WETH, USDT.address],
+      user2.address,
+      currentTime + 100000,
+      { value: ethers.utils.parseEther("100") }
+    );
   });
 
   it("create pool successfully", async () => {
@@ -85,122 +126,189 @@ describe("TokenPool", async () => {
     expect(assetToken2).to.be.eq(DAI.address);
   });
 
-  describe("token pool", async () => {
-    describe("deposit successfully", async () => {
-      it("should not deposit if pool has no reward", async () => {
-        await expect(
-          TokenPool1.connect(user1).deposit(ethers.utils.parseEther("5"), 0)
-        ).revertedWith("Cannot Deposit, Pool has no rewards");
-      });
-
-      it("users should deposit successfully", async () => {
-        await RewardToken.mint(
-          TokenPool1.address,
-          ethers.utils.parseEther("100")
-        );
-
-        const user1USDTBalancePoolBefore = await TokenPool1.depositorBalance(
-          user1.address
-        );
-
-        const poolUSDTBalanceBefore = await USDT.balanceOf(TokenPool1.address);
-
-        await USDT.connect(user1).approve(
-          TokenPool1.address,
-          ethers.utils.parseEther("30")
-        );
-        await TokenPool1.connect(user1).deposit(
-          ethers.utils.parseEther("30"),
-          false
-        );
-
-        const user1USDTBalancePoolAfter = await TokenPool1.depositorBalance(
-          user1.address
-        );
-        const poolUSDTBalanceAfter = await USDT.balanceOf(TokenPool1.address);
-
-        expect(poolUSDTBalanceAfter.sub(poolUSDTBalanceBefore)).to.be.eq(
-          ethers.utils.parseEther("30")
-        );
-        expect(
-          user1USDTBalancePoolAfter.sub(user1USDTBalancePoolBefore)
-        ).to.be.eq(ethers.utils.parseEther("30"));
-
-        expect(await TokenPool1.getDepositorAddress(0)).to.be.eq(user1.address);
-      });
+  describe("deposit successfully", async () => {
+    it("should not deposit if pool has no reward", async () => {
+      await expect(
+        TokenPool1.connect(user1).deposit(ethers.utils.parseEther("5"), 0)
+      ).revertedWith("Cannot Deposit, Pool has no rewards");
     });
 
-    describe("SetRewardPerWeek", async () => {
-      it("should set Reward successfully", async () => {
-        await TokenPool1.connect(PoolFactory.signer).setRewardRole(
-          team.address
-        );
-        const poolRewardBalanceBefore = await RewardToken.balanceOf(
-          TokenPool1.address
-        );
+    it("users should deposit successfully", async () => {
+      const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+      const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+      await UniswapRouter.connect(user1).swapETHForExactTokens(
+        10000,
+        [WETH, RewardToken.address],
+        TokenPool1.address,
+        currentTime + 100000,
+        { value: ethers.utils.parseEther("100") }
+      );
 
-        await RewardToken.connect(team).approve(
-          TokenPool1.address,
-          ethers.utils.parseEther("100")
-        );
+      const user1USDTBalancePoolBefore = await TokenPool1.depositorBalance(
+        user1.address
+      );
 
-        await increaseBlockTimestamp(provider, 86400 * 7);
-        const currentTime = (await ethers.provider.getBlock("latest"))
-          .timestamp;
+      const poolUSDTBalanceBefore = await USDT.balanceOf(TokenPool1.address);
 
-        await TokenPool1.connect(team).setRewardPerWeek(
-          ethers.utils.parseEther("100")
-        );
+      await USDT.connect(user1).approve(TokenPool1.address, 300);
+      await TokenPool1.connect(user1).deposit(300, false);
 
-        const poolRewardBalanceAfter = await RewardToken.balanceOf(
-          TokenPool1.address
-        );
+      const user1USDTBalancePoolAfter = await TokenPool1.depositorBalance(
+        user1.address
+      );
+      const poolUSDTBalanceAfter = await USDT.balanceOf(TokenPool1.address);
 
-        expect(poolRewardBalanceAfter.sub(poolRewardBalanceBefore)).to.be.eq(
-          ethers.utils.parseEther("100")
-        );
+      expect(poolUSDTBalanceAfter.sub(poolUSDTBalanceBefore)).to.be.eq(300);
+      expect(
+        user1USDTBalancePoolAfter.sub(user1USDTBalancePoolBefore)
+      ).to.be.eq(300);
 
-        expect(
-          Number(await TokenPool1.lastRewardTime())
-        ).to.be.greaterThanOrEqual(Number(currentTime));
-      });
+      expect(await TokenPool1.getDepositorAddress(0)).to.be.eq(user1.address);
+    });
+    it("user1 should deposit successfully with compound", async () => {
+      const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+      const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+      await UniswapRouter.connect(user1).swapETHForExactTokens(
+        10000,
+        [WETH, RewardToken.address],
+        TokenPool1.address,
+        currentTime + 100000,
+        { value: ethers.utils.parseEther("100") }
+      );
+
+      await USDT.connect(user1).approve(TokenPool1.address, 500);
+      await TokenPool1.connect(user1).deposit(300, false);
+
+      await increaseBlockTimestamp(provider, 86400 * 7);
+
+      await TokenPool1.setRewardRole(team.address);
+      await RewardToken.connect(team).approve(TokenPool1.address, 100);
+      await TokenPool1.connect(team).setRewardPerWeek(100);
+
+      await TokenPool1.connect(user1).deposit(200, true);
+    });
+  });
+
+  describe("SetRewardPerWeek", async () => {
+    it("should set Reward successfully", async () => {
+      await TokenPool1.connect(PoolFactory.signer).setRewardRole(team.address);
+      const poolRewardBalanceBefore = await RewardToken.balanceOf(
+        TokenPool1.address
+      );
+
+      await RewardToken.connect(team).approve(TokenPool1.address, 100);
+
+      await increaseBlockTimestamp(provider, 86400 * 7);
+      const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+
+      await TokenPool1.connect(team).setRewardPerWeek(100);
+
+      const poolRewardBalanceAfter = await RewardToken.balanceOf(
+        TokenPool1.address
+      );
+
+      expect(poolRewardBalanceAfter.sub(poolRewardBalanceBefore)).to.be.eq(100);
+
+      expect(
+        Number(await TokenPool1.lastRewardTime())
+      ).to.be.greaterThanOrEqual(Number(currentTime));
+    });
+  });
+
+  describe("withdraw", async () => {
+    beforeEach(async () => {
+      const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+      const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+      await UniswapRouter.connect(user1).swapETHForExactTokens(
+        10000,
+        [WETH, RewardToken.address],
+        TokenPool1.address,
+        currentTime + 100000,
+        { value: ethers.utils.parseEther("100") }
+      );
+
+      await UniswapRouter.connect(user1).swapETHForExactTokens(
+        10000,
+        [WETH, RewardToken.address],
+        TokenPool2.address,
+        currentTime + 100000,
+        { value: ethers.utils.parseEther("100") }
+      );
+
+      await TokenPool1.connect(PoolFactory.signer).setRewardRole(team.address);
+      await TokenPool2.connect(PoolFactory.signer).setRewardRole(team.address);
+
+      //User1, User2 deposit to USDT_Pool
+      await USDT.connect(user1).approve(TokenPool1.address, 300);
+      await TokenPool1.connect(user1).deposit(300, false);
+      await USDT.connect(user2).approve(TokenPool1.address, 100);
+      await TokenPool1.connect(user2).deposit(100, false);
+
+      //User1, User2 deposit to DAI_Pool
+      await DAI.connect(user1).approve(TokenPool2.address, 300);
+      await TokenPool2.connect(user1).deposit(300, false);
+      await DAI.connect(user2).approve(100);
+      await TokenPool2.connect(user2).deposit(100, false);
+
+      await increaseBlockTimestamp(provider, 86400 * 7);
+
+      await RewardToken.connect(team).approve(TokenPool1.address, 100);
+      await RewardToken.connect(team).approve(TokenPool2.address, 100);
+      await TokenPool1.connect(team).setRewardPerWeek(100);
+
+      await TokenPool2.connect(team).setRewardPerWeek(100);
     });
 
-    describe("withdraw", async () => {
-      beforeEach(async () => {
-        await RewardToken.mint(
-          TokenPool1.address,
-          ethers.utils.parseEther("100")
-        );
-        await RewardToken.mint(
-          TokenPool2.address,
-          ethers.utils.parseEther("100")
-        );
+    it("user should not withdraw if no depositor", async () => {
+      await expect(
+        TokenPool1.connect(team).withdraw(ethers.utils.parseEther("5"))
+      ).to.be.revertedWith("Invalid withdrawal amount");
+    });
 
-        await TokenPool1.connect(PoolFactory.signer).setRewardRole(
-          team.address
-        );
-        await TokenPool2.connect(PoolFactory.signer).setRewardRole(
-          team.address
-        );
+    it("user should not withdraw with invalid amount", async () => {
+      await expect(
+        TokenPool1.connect(user1).withdraw(ethers.utils.parseEther("500"))
+      ).to.be.revertedWith("Invalid withdrawal amount");
+    });
 
-        await USDT.connect(user1).approve(
-          TokenPool1.address,
-          ethers.utils.parseEther("30")
-        );
-        await TokenPool1.connect(user1).deposit(
-          ethers.utils.parseEther("30"),
-          false
-        );
-        await USDT.connect(user2).approve(
-          TokenPool1.address,
-          ethers.utils.parseEther("10")
-        );
-        await TokenPool1.connect(user2).deposit(
-          ethers.utils.parseEther("10"),
-          false
-        );
-      });
+    it("user1 should withdraw successfully from USDT_Pool", async () => {
+      const user1USDTBalanceBefore = await USDT.balanceOf(user1.address);
+      const user1RewardBalanceBefore = await RewardToken.balanceOf(
+        user1.address
+      );
+
+      await TokenPool1.connect(user1).withdraw(ethers.utils.parseEther("30"));
+
+      const user1USDTBalanceAfter = await USDT.balanceOf(user1.address);
+      const user1RewardBalanceAfter = await RewardToken.balanceOf(
+        user1.address
+      );
+
+      expect(user1USDTBalanceAfter.sub(user1USDTBalanceBefore)).to.be.eq(300);
+
+      expect(user1RewardBalanceAfter.sub(user1RewardBalanceBefore)).to.be.eq(
+        75
+      );
+    });
+
+    it("user2 should withdraw successfully from DAI_Pool", async () => {
+      const user2DAIBalanceBefore = await DAI.balanceOf(user2.address);
+      const user2RewardBalanceBefore = await RewardToken.balanceOf(
+        user2.address
+      );
+
+      await TokenPool2.connect(user2).withdraw(ethers.utils.parseEther("10"));
+
+      const user2DAIBalanceAfter = await DAI.balanceOf(user2.address);
+      const user2RewardBalanceAfter = await RewardToken.balanceOf(
+        user2.address
+      );
+
+      expect(user2DAIBalanceAfter.sub(user2DAIBalanceBefore)).to.be.eq(100);
+
+      expect(user2RewardBalanceAfter.sub(user2RewardBalanceBefore)).to.be.eq(
+        25
+      );
     });
   });
 });

@@ -7,6 +7,7 @@ import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "hardhat/console.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
@@ -30,13 +31,13 @@ contract Oracle {
             UniswapV2Library.pairFor(factory, tokenA, tokenB)
         );
         pair = _pair;
-        token0 = _pair.token0();
-        token1 = _pair.token1();
-        price0CumulativeLast = _pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)
-        price1CumulativeLast = _pair.price1CumulativeLast(); // fetch the current accumulated price value (0 / 1)
+        token0 = pair.token0();
+        token1 = pair.token1();
+        price0CumulativeLast = pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)
+        price1CumulativeLast = pair.price1CumulativeLast(); // fetch the current accumulated price value (0 / 1)
         uint112 reserve0;
         uint112 reserve1;
-        (reserve0, reserve1, blockTimestampLast) = _pair.getReserves();
+        (reserve0, reserve1, blockTimestampLast) = pair.getReserves();
         require(
             reserve0 != 0 && reserve1 != 0,
             "ExampleOracleSimple: NO_RESERVES"
