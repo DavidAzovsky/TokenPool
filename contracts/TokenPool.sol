@@ -1,13 +1,15 @@
 //SPDX-License-Identifier:MIT
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "hardhat/console.sol";
 
 pragma solidity ^0.8.9;
 
-contract TokenPool is AccessControl {
+contract TokenPool is AccessControl, Ownable {
     // using EnumerableMap for EnumerableMap.UintToAddressMap;
     // using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -20,7 +22,6 @@ contract TokenPool is AccessControl {
     mapping(address => uint) public lastDepositTime;
     mapping(address => uint) public rewardBalance;
 
-    // uint256 public depositorCount
     EnumerableSet.AddressSet internal depositors;
     mapping(address => uint) public depositorBalance;
 
@@ -45,7 +46,7 @@ contract TokenPool is AccessControl {
         uniswapRouter = _router;
         lastRewardTime = block.timestamp;
 
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        // _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /// @notice deposit determined token to the pool for rewards
@@ -59,7 +60,7 @@ contract TokenPool is AccessControl {
         );
 
         if (!depositors.contains(msg.sender)) depositors.add(msg.sender);
-        if (_compound) {
+        if (_compound && rewardBalance[msg.sender] != 0) {
             //change token using uniswap and build uniswap oracle
             if (rewardToken != assetToken) {
                 IERC20(rewardToken).approve(
@@ -147,7 +148,14 @@ contract TokenPool is AccessControl {
     /// @notice set reward role to team
     /// @dev deployer gives team the role of put reward into pool
     /// @param _to the address of team member
-    function setRewardRole(address _to) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _setupRole(REWARD_ROLE, _to);
+    function setRewardRole(address _to) external {
+        _grantRole(REWARD_ROLE, _to);
+    }
+
+    /// @notice get address of depositor
+    /// @param index the index of depositorlist
+    /// @return address of index
+    function getDepositorAddress(uint index) external view returns (address) {
+        return depositors.at(index);
     }
 }
