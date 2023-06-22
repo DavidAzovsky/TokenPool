@@ -31,6 +31,7 @@ contract Oracle {
             UniswapV2Library.pairFor(factory, tokenA, tokenB)
         );
         pair = _pair;
+        console.log("pairAddress", address(pair));
         token0 = pair.token0();
         token1 = pair.token1();
         price0CumulativeLast = pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)

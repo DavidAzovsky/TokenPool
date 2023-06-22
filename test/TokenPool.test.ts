@@ -4,12 +4,6 @@ import { MockProvider } from "ethereum-waffle";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Contract } from "alchemy-sdk";
 import Web3 from "web3";
-import {
-  TokenPoolFactory__factory,
-  TokenPool__factory,
-} from "../typechain-types";
-import { parseEther } from "alchemy-sdk/dist/src/api/utils";
-import { util } from "prettier";
 
 const { provider } = waffle;
 const web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
@@ -31,7 +25,7 @@ describe("TokenPool", async () => {
   let UniswapRouter: Contract;
 
   let RewardToken: Contract;
-  let USDT: Contract;
+  let WBTC: Contract;
   let DAI: Contract;
 
   beforeEach(async () => {
@@ -42,9 +36,9 @@ describe("TokenPool", async () => {
       "0x514910771AF9Ca656af840dff83E8264EcF986CA"
     );
 
-    USDT = await ethers.getContractAt(
+    WBTC = await ethers.getContractAt(
       "IERC20",
-      "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+      "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
     );
 
     DAI = await ethers.getContractAt(
@@ -68,9 +62,7 @@ describe("TokenPool", async () => {
     );
     await PoolFactory.deployed();
 
-    // console.log("poolFactory", PoolFactory.address);
-
-    await PoolFactory.connect(owner).addPool(USDT.address);
+    await PoolFactory.connect(owner).addPool(WBTC.address);
     const pool1Address = await PoolFactory.getPoolAddress(0);
     TokenPool1 = await ethers.getContractAt("TokenPool", pool1Address);
 
@@ -105,14 +97,14 @@ describe("TokenPool", async () => {
 
     await UniswapRouter.connect(user1).swapETHForExactTokens(
       10000,
-      [WETH, USDT.address],
+      [WETH, WBTC.address],
       user1.address,
       currentTime + 100000,
       { value: ethers.utils.parseEther("100") }
     );
     await UniswapRouter.connect(user2).swapETHForExactTokens(
       10000,
-      [WETH, USDT.address],
+      [WETH, WBTC.address],
       user2.address,
       currentTime + 100000,
       { value: ethers.utils.parseEther("100") }
@@ -122,20 +114,21 @@ describe("TokenPool", async () => {
   it("create pool successfully", async () => {
     const assetToken1 = await TokenPool1.assetToken();
     const assetToken2 = await TokenPool2.assetToken();
-    expect(assetToken1).to.be.eq(USDT.address);
+    expect(assetToken1).to.be.eq(WBTC.address);
     expect(assetToken2).to.be.eq(DAI.address);
   });
 
   describe("deposit successfully", async () => {
     it("should not deposit if pool has no reward", async () => {
       await expect(
-        TokenPool1.connect(user1).deposit(ethers.utils.parseEther("5"), 0)
+        TokenPool2.connect(user2).deposit(ethers.utils.parseEther("5"), 0)
       ).revertedWith("Cannot Deposit, Pool has no rewards");
     });
 
     it("users should deposit successfully", async () => {
       const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
       const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+
       await UniswapRouter.connect(user1).swapETHForExactTokens(
         10000,
         [WETH, RewardToken.address],
@@ -144,23 +137,24 @@ describe("TokenPool", async () => {
         { value: ethers.utils.parseEther("100") }
       );
 
-      const user1USDTBalancePoolBefore = await TokenPool1.depositorBalance(
+      const user1WBTCBalancePoolBefore = await TokenPool1.depositorBalance(
         user1.address
       );
 
-      const poolUSDTBalanceBefore = await USDT.balanceOf(TokenPool1.address);
+      const poolWBTCBalanceBefore = await WBTC.balanceOf(TokenPool1.address);
 
-      await USDT.connect(user1).approve(TokenPool1.address, 300);
+      await WBTC.connect(user1).approve(TokenPool1.address, 300);
+
       await TokenPool1.connect(user1).deposit(300, false);
 
-      const user1USDTBalancePoolAfter = await TokenPool1.depositorBalance(
+      const user1WBTCBalancePoolAfter = await TokenPool1.depositorBalance(
         user1.address
       );
-      const poolUSDTBalanceAfter = await USDT.balanceOf(TokenPool1.address);
+      const poolWBTCBalanceAfter = await WBTC.balanceOf(TokenPool1.address);
 
-      expect(poolUSDTBalanceAfter.sub(poolUSDTBalanceBefore)).to.be.eq(300);
+      expect(poolWBTCBalanceAfter.sub(poolWBTCBalanceBefore)).to.be.eq(300);
       expect(
-        user1USDTBalancePoolAfter.sub(user1USDTBalancePoolBefore)
+        user1WBTCBalancePoolAfter.sub(user1WBTCBalancePoolBefore)
       ).to.be.eq(300);
 
       expect(await TokenPool1.getDepositorAddress(0)).to.be.eq(user1.address);
@@ -176,7 +170,7 @@ describe("TokenPool", async () => {
         { value: ethers.utils.parseEther("100") }
       );
 
-      await USDT.connect(user1).approve(TokenPool1.address, 500);
+      await WBTC.connect(user1).approve(TokenPool1.address, 500);
       await TokenPool1.connect(user1).deposit(300, false);
 
       await increaseBlockTimestamp(provider, 86400 * 7);
@@ -235,19 +229,19 @@ describe("TokenPool", async () => {
         { value: ethers.utils.parseEther("100") }
       );
 
-      await TokenPool1.connect(PoolFactory.signer).setRewardRole(team.address);
-      await TokenPool2.connect(PoolFactory.signer).setRewardRole(team.address);
+      await TokenPool1.setRewardRole(team.address);
+      await TokenPool2.setRewardRole(team.address);
 
-      //User1, User2 deposit to USDT_Pool
-      await USDT.connect(user1).approve(TokenPool1.address, 300);
+      //User1, User2 deposit to WBTC_Pool
+      await WBTC.connect(user1).approve(TokenPool1.address, 300);
       await TokenPool1.connect(user1).deposit(300, false);
-      await USDT.connect(user2).approve(TokenPool1.address, 100);
+      await WBTC.connect(user2).approve(TokenPool1.address, 100);
       await TokenPool1.connect(user2).deposit(100, false);
 
       //User1, User2 deposit to DAI_Pool
       await DAI.connect(user1).approve(TokenPool2.address, 300);
       await TokenPool2.connect(user1).deposit(300, false);
-      await DAI.connect(user2).approve(100);
+      await DAI.connect(user2).approve(TokenPool2.address, 100);
       await TokenPool2.connect(user2).deposit(100, false);
 
       await increaseBlockTimestamp(provider, 86400 * 7);
@@ -271,20 +265,20 @@ describe("TokenPool", async () => {
       ).to.be.revertedWith("Invalid withdrawal amount");
     });
 
-    it("user1 should withdraw successfully from USDT_Pool", async () => {
-      const user1USDTBalanceBefore = await USDT.balanceOf(user1.address);
+    it("user1 should withdraw successfully from WBTC Pool", async () => {
+      const user1WBTCBalanceBefore = await WBTC.balanceOf(user1.address);
       const user1RewardBalanceBefore = await RewardToken.balanceOf(
         user1.address
       );
 
-      await TokenPool1.connect(user1).withdraw(ethers.utils.parseEther("30"));
+      await TokenPool1.connect(user1).withdraw(300);
 
-      const user1USDTBalanceAfter = await USDT.balanceOf(user1.address);
+      const user1WBTCBalanceAfter = await WBTC.balanceOf(user1.address);
       const user1RewardBalanceAfter = await RewardToken.balanceOf(
         user1.address
       );
 
-      expect(user1USDTBalanceAfter.sub(user1USDTBalanceBefore)).to.be.eq(300);
+      expect(user1WBTCBalanceAfter.sub(user1WBTCBalanceBefore)).to.be.eq(300);
 
       expect(user1RewardBalanceAfter.sub(user1RewardBalanceBefore)).to.be.eq(
         75
@@ -297,7 +291,7 @@ describe("TokenPool", async () => {
         user2.address
       );
 
-      await TokenPool2.connect(user2).withdraw(ethers.utils.parseEther("10"));
+      await TokenPool2.connect(user2).withdraw(100);
 
       const user2DAIBalanceAfter = await DAI.balanceOf(user2.address);
       const user2RewardBalanceAfter = await RewardToken.balanceOf(

@@ -53,7 +53,7 @@ contract TokenPool is AccessControl, Ownable {
         assetToken = _assetToken;
         uniswapRouter = _router;
         lastRewardTime = block.timestamp;
-        oracle = new Oracle(_factory, _assetToken, _rewardToken);
+        oracle = new Oracle(_factory, _rewardToken, _assetToken);
         // _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -80,7 +80,7 @@ contract TokenPool is AccessControl, Ownable {
                     rewardToken,
                     rewardBalance[msg.sender]
                 );
-
+                console.log("expected outAMount", amountOut);
                 address[] memory path = new address[](2);
                 path[0] = rewardToken;
                 path[1] = assetToken;
@@ -89,18 +89,21 @@ contract TokenPool is AccessControl, Ownable {
                     uniswapRouter,
                     rewardBalance[msg.sender]
                 );
-                uint[] memory amounts = IUniswapV2Router02(uniswapRouter)
+                uint[] memory amounts = IUniswapV2Router01(uniswapRouter)
                     .swapExactTokensForTokens(
                         rewardBalance[msg.sender],
-                        amountOut,
+                        0,
                         path,
                         address(this),
                         block.timestamp + 600
                     );
 
+                console.log("real out amout", amounts[1]);
+
                 depositorBalance[msg.sender] += amounts[1];
             } else depositorBalance[msg.sender] += rewardBalance[msg.sender];
             rewardBalance[msg.sender] = 0;
+            console.log("1");
         }
         lastDepositTime[msg.sender] = block.timestamp;
         depositorBalance[msg.sender] += _amount;
