@@ -30,6 +30,8 @@ contract TokenPool is AccessControl, Ownable {
 
     bytes32 constant REWARD_ROLE = keccak256("REWARD_ROLE");
 
+    address private constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
     event Deposit(
         address from,
         uint256 amount,
@@ -76,34 +78,44 @@ contract TokenPool is AccessControl, Ownable {
                     rewardBalance[msg.sender]
                 );
 
+                oracle.update();
                 uint256 amountOut = oracle.consult(
                     rewardToken,
                     rewardBalance[msg.sender]
                 );
-                console.log("expected outAMount", amountOut);
-                address[] memory path = new address[](2);
-                path[0] = rewardToken;
-                path[1] = assetToken;
+                console.log("expected outAmount", amountOut);
+                address[] memory path;
+                if (
+                    address(address(assetToken)) == WETH || rewardToken == WETH
+                ) {
+                    path = new address[](2);
+                    path[0] = rewardToken;
+                    path[1] = assetToken;
+                } else {
+                    path = new address[](3);
+                    path[0] = address(address(rewardToken));
+                    path[1] = WETH;
+                    path[2] = assetToken;
+                }
 
                 IERC20(rewardToken).approve(
                     uniswapRouter,
                     rewardBalance[msg.sender]
                 );
-                uint[] memory amounts = IUniswapV2Router01(uniswapRouter)
+                uint[] memory amounts = IUniswapV2Router02(uniswapRouter)
                     .swapExactTokensForTokens(
                         rewardBalance[msg.sender],
-                        0,
+                        amountOut,
                         path,
                         address(this),
                         block.timestamp + 600
                     );
 
-                console.log("real out amout", amounts[1]);
+                console.log("real out amout", amounts[amounts.length - 1]);
 
-                depositorBalance[msg.sender] += amounts[1];
+                depositorBalance[msg.sender] += amounts[amounts.length - 1];
             } else depositorBalance[msg.sender] += rewardBalance[msg.sender];
             rewardBalance[msg.sender] = 0;
-            console.log("1");
         }
         lastDepositTime[msg.sender] = block.timestamp;
         depositorBalance[msg.sender] += _amount;
@@ -127,6 +139,7 @@ contract TokenPool is AccessControl, Ownable {
         rewardBalance[msg.sender] = 0;
 
         depositorBalance[msg.sender] -= _amount;
+        if (depositorBalance[msg.sender] == 0) {delete lastDepositTime[msg.sender] ; depositors.remove(msg.sender);
 
         IERC20(assetToken).transfer(msg.sender, _amount);
         IERC20(rewardToken).transfer(msg.sender, reward);
@@ -174,5 +187,9 @@ contract TokenPool is AccessControl, Ownable {
     /// @return address of index
     function getDepositorAddress(uint index) external view returns (address) {
         return depositors.at(index);
+    }
+
+    function getOracleAddress() external view returns (address) {
+        return address(oracle);
     }
 }
