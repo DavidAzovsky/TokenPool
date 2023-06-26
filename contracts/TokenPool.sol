@@ -217,7 +217,7 @@ contract TokenPool is AccessControl {
         if (assetToken == WETH) {
             amounts = IUniswapV2Router02(uniswapRouter).swapExactTokensForETH(
                 rewardBalance[msg.sender],
-                amountOut,
+                0,
                 path,
                 address(this),
                 block.timestamp + 600
