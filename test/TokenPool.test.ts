@@ -149,11 +149,11 @@ describe("TokenPool", async () => {
         TokenPool2.connect(user2).depositETH(0, { value: 100 })
       ).revertedWith("Cannot Deposit, Pool has no rewards");
     });
-    it("user1 should not depoist eth to asset pool", async () => {
+    it("user1 should not deposit eth to asset pool", async () => {
       await expect(TokenPool1.connect(user1).depositETH(false, { value: 1000 }))
         .to.be.reverted;
     });
-    it("user1 should not depoist asset to eth pool", async () => {
+    it("user1 should not deposit asset to eth pool", async () => {
       await expect(TokenPool2.connect(user1).depositToken(1000, false)).to.be
         .reverted;
     });
