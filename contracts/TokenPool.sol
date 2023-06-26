@@ -201,7 +201,7 @@ contract TokenPool is AccessControl {
             rewardBalance[msg.sender]
         );
         address[] memory path;
-        if (address(address(assetToken)) == WETH || rewardToken == WETH) {
+        if (address(address(assetToken)) == WETH) {
             path = new address[](2);
             path[0] = rewardToken;
             path[1] = assetToken;
@@ -217,8 +217,7 @@ contract TokenPool is AccessControl {
         if (assetToken == WETH) {
             amounts = IUniswapV2Router02(uniswapRouter).swapExactTokensForETH(
                 rewardBalance[msg.sender],
-                // amountOut,
-                0,
+                amountOut,
                 path,
                 address(this),
                 block.timestamp + 600

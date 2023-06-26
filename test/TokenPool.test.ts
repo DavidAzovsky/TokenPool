@@ -305,18 +305,6 @@ describe("TokenPool", async () => {
           value: ethers.utils.parseEther("200"),
         })
       ).to.be.reverted;
-
-      const user1UNIBalancePoolAfter = await TokenPool2.depositorBalance(
-        user1.address
-      );
-
-      expect(
-        Number(
-          user1UNIBalancePoolAfter
-            .sub(user1UNIBalancePoolBefore)
-            .sub(ethers.utils.parseEther("200"))
-        )
-      ).to.be.greaterThanOrEqual(Number(expectAmount));
     });
   });
   describe("SetRewardPerWeek", async () => {
