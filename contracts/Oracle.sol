@@ -27,9 +27,9 @@ contract Oracle {
     FixedPoint.uq112x112 public price0Average;
     FixedPoint.uq112x112 public price1Average;
 
-    constructor(address factory, address tokenA, address tokenB) public {
+    constructor(address _factory, address _token0, address _token1) public {
         IUniswapV2Pair _pair = IUniswapV2Pair(
-            UniswapV2Library.pairFor(factory, tokenA, tokenB)
+            UniswapV2Library.pairFor(_factory, _token0, _token1)
         );
         pair = _pair;
         token0 = pair.token0();
@@ -39,12 +39,10 @@ contract Oracle {
         uint112 reserve0;
         uint112 reserve1;
         (reserve0, reserve1, blockTimestampLast) = pair.getReserves();
-        require(
-            reserve0 != 0 && reserve1 != 0,
-            "ExampleOracleSimple: NO_RESERVES"
-        ); // ensure that there's liquidity in the pair
     }
 
+    /// @notice update the prices of uniswap pair
+    /// @dev calculate average prices and update cumulative prices
     function update() external {
         (
             uint price0Cumulative,
@@ -54,10 +52,7 @@ contract Oracle {
         uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
 
         // ensure that at least one full period has passed since the last update
-        require(
-            timeElapsed >= PERIOD,
-            "ExampleOracleSimple: PERIOD_NOT_ELAPSED"
-        );
+        require(timeElapsed >= PERIOD, "Oracle: PERIOD_NOT_ELAPSED");
 
         // overflow is desired, casting never truncates
         // cumulative price is in (uq112x112 price * seconds) units so we simply wrap it after division by time elapsed
@@ -73,16 +68,21 @@ contract Oracle {
         blockTimestampLast = blockTimestamp;
     }
 
-    // note this will always return 0 before update has been called successfully for the first time.
+    /// @notice get output token amount from input amount and price
+    /// @dev get the expected amount of token base on input token and amounts,
+    ///     this will always return 0 before update has been called successfully for the first time
+    /// @param _token address of input token
+    /// @param _amountIn amount of input token
+    /// @return amountOut the calculated amount of output token
     function consult(
-        address token,
-        uint amountIn
+        address _token,
+        uint _amountIn
     ) external view returns (uint amountOut) {
-        if (token == token0) {
-            amountOut = price0Average.mul(amountIn).decode144();
+        if (_token == token0) {
+            amountOut = price0Average.mul(_amountIn).decode144();
         } else {
-            require(token == token1, "ExampleOracleSimple: INVALID_TOKEN");
-            amountOut = price1Average.mul(amountIn).decode144();
+            require(_token == token1, "Oracle: INVALID_TOKEN");
+            amountOut = price1Average.mul(_amountIn).decode144();
         }
     }
 }
