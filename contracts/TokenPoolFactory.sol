@@ -23,6 +23,9 @@ contract TokenPoolFactory is Ownable {
         uniswapFactory = _factory;
     }
 
+    /// @notice create token pool contract
+    /// @dev token pool provides a service that people can deposit and withdraw with claimed reward
+    /// @param _asset the address of asset token
     function addPool(address _asset) external onlyOwner {
         require(!assetList.contains(_asset), "Pool already exists");
         TokenPool newPool = new TokenPool(
@@ -35,7 +38,10 @@ contract TokenPoolFactory is Ownable {
         poolList.add(address(newPool));
     }
 
-    function getPoolAddress(uint index) external view returns (address) {
-        return poolList.at(index);
+    /// @notice get the address of Pool from poolList with id
+    /// @param _index of pool list
+    /// @return address of pool contract
+    function getPoolAddress(uint _index) external view returns (address) {
+        return poolList.at(_index);
     }
 }
