@@ -194,6 +194,9 @@ contract TokenPool is AccessControl {
         emit Withdrawal(msg.sender, _amount, reward, block.timestamp);
     }
 
+    /// @notice internal function for deposit with compound option
+    /// @dev swap reward to asset with building oracles and using uniswap router
+    ///     if asset is ETH, using swapExactTokensforETH instead
     function _compoundReward() internal {
         oracle.update();
         uint256 amountOut = oracle.consult(
