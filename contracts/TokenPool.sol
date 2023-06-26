@@ -220,20 +220,21 @@ contract TokenPool is AccessControl {
         if (assetToken == WETH) {
             amounts = IUniswapV2Router02(uniswapRouter).swapExactTokensForETH(
                 rewardBalance[msg.sender],
-                0,
+                amountOut,
                 path,
                 address(this),
                 block.timestamp + 600
             );
-        } else
+        } else {
             amounts = IUniswapV2Router02(uniswapRouter)
                 .swapExactTokensForTokens(
                     rewardBalance[msg.sender],
-                    amountOut,
+                    0,
                     path,
                     address(this),
                     block.timestamp + 600
                 );
+        }
         depositorBalance[msg.sender] += amounts[amounts.length - 1];
         totalDeposit += amounts[amounts.length - 1];
     }
