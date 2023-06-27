@@ -3,6 +3,7 @@ import "@typechain/hardhat";
 import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
 import { task } from "hardhat/config";
+require("dotenv").config();
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners();
@@ -56,10 +57,18 @@ export default {
         url: "https://eth-mainnet.g.alchemy.com/v2/AqlUdmgjvOARQTmzfoQZO-Hi9nsnO_-Q",
       },
     },
+    // goerli: {
+    //   url: process.env.GOERLI_RPC_URL,
+    //   accounts: [`0x${process.env.WALLET_PRIVATE_KEY}`],
+    // },
+    // sepolia: {
+    //   url: process.env.SEPOLIA_RPC_URL,
+    //   accounts: [`0x${process.env.WALLET_PRIVATE_KEY}`],
+    // },
   },
 
   etherscan: {
-    apiKey: "<etherscan-api-key>",
+    apiKey: "WYANGPE4QJMAXGH9PTU1S9W49WP6VHTQW6",
   },
 
   coverage: {

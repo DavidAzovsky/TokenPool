@@ -16,6 +16,7 @@
     "@openzeppelin/hardhat-upgrades": "^1.27.0",
     "@types/ethereumjs-abi": "^0.6.3",
     "docker-compose": "^0.24.1",
+    "dotenv": "^16.3.1",
     "ethereumjs-abi": "^0.6.8",
     "graphql": "^16.7.1",
     "graphql-request": "^6.1.0",
