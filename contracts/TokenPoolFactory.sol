@@ -1,9 +1,8 @@
-//SPDX-License-Identifier:MIT
+//SPDX-License-Identifier: MIT
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./TokenPool.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "hardhat/console.sol";
+import "./TokenPool.sol";
 
 pragma solidity ^0.8.9;
 
